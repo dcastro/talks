@@ -1,0 +1,32 @@
+name:                the-haskell-epidemic
+version:             0.1.0.0
+#synopsis:
+#description:
+homepage:            https://github.com/dcastro/talks/the-haskell-epidemic
+license:             BSD3
+author:              Diogo Castro
+maintainer:          dc@diogocastro.com
+copyright:           2017 Diogo Castro
+category:            Web
+extra-source-files:
+- README.md
+
+dependencies:
+  - base >= 4.7 && < 5
+
+executables:
+  the-haskell-epidemic:
+    source-dirs:      src
+    main:             Main.hs
+    dependencies:
+      - parsec
+      - parsec-numbers
+      - unordered-containers
+      - QuickCheck
+      - quickcheck-instances
+      
+    ghc-options:
+      - -Wall
+      - -Wno-name-shadowing
+      - -Wno-unused-do-bind
+      - -fdefer-typed-holes

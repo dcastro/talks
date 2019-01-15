@@ -4,7 +4,7 @@
   "description": "Deck created with mdx-deck",
   "scripts": {
     "start": "mdx-deck deck.mdx",
-    "build": "mdx-deck build deck.mdx",
+    "build": "mdx-deck build --no-html deck.mdx && cp -r img dist",
     "pdf": "mdx-deck pdf deck.mdx",
     "image": "mdx-deck screenshot deck.mdx",
     "help": "mdx-deck"
@@ -13,7 +13,8 @@
   "author": "Brent Jackson",
   "license": "MIT",
   "devDependencies": {
-    "mdx-deck": "^1.6.7"
+    "mdx-deck": "1.8.2",
+    "mdx-deck-code-surfer": "0.5.3"
   },
   "name": "the-haskell-epidemic"
 }
