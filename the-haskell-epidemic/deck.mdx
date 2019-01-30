@@ -38,10 +38,9 @@ export const theme = {
 <Notes>
   For those not familiar, Haskell is a general purpose, statically typed, functional programming language.
   Since I've started learning Haskell, I've come to notice that a lot of the
-  best ideas in Haskell tend to spread out to other languages and ecosystems.
+  great ideas in Haskell tend to spread out and infect other languages and ecosystems.
   <br/><br/>
-  Some of them first appeared in Haskell and then took off, others appeared elsewhere and then Haskell helped making them popular.
-  So that's what I'm going to talk about today.
+  Some of them first appeared in Haskell and then took off, others appeared elsewhere and then Haskell helped popularise them.
 </Notes>
 
 ---
@@ -51,7 +50,7 @@ export const theme = {
 <Notes>
   Let's talk about types.
   Like all languages, Haskell gives us a bunch of primitive data types out of the box:
-  Int, Boolean, String.
+  Int, Boolean, String, Char.
   <br/><br/>
   And at some point, you want to combine these small types into bigger ones.
 </Notes>
@@ -103,7 +102,7 @@ data Person = Person { name :: String, age :: Int }
   <br/><br/>
   But this is only half the story.
   If classes and records let us say "a person is a string *and* an int",
-  it makes sense that there should also be a way of saying "this type is either a string *or* an int", right?
+  it makes sense that there should also be a way of saying "this new data type that I'm defining is either a string *or* an int".
 </Notes>
 
 ---
@@ -122,7 +121,7 @@ i = ItsAnInt 123
   For example, I can define a new data type called `StringOrInt`.
   And I create an instance of that type by using one of these two constructors.
   <br/><br/>
-  ItsAString, which takes a string, or ItsAnInt which takes an int.
+  ItsAString, and give it a string, or ItsAnInt and give it an int.
 </Notes>
 
 
@@ -133,8 +132,9 @@ data LoginStatus = LoggedOut | LoggedIn Username Friends
 ```
 
 <Notes>
-  We can use this to model a user's login status.
-  A user is either logged out, or they're logged in, in which case we know their username and who they're friends with.
+  We can use sum types to model a lot of things.
+  For example, a user's login status might be either logged out, in which case we know nothing about them,
+  or they're logged in, in which case we know their username and who they're friends with.
 </Notes>
 
 ---
@@ -166,15 +166,15 @@ func trySomething() (*string, error) {
 ```
 
 <Notes>
-  Here's a thing I like about Go.
-  In Go, you don't throw exceptions - you return an error value, and then you just pass these around.
+  Here's a thing I really like about Go.
+  In Go, you don't throw exceptions. The convention is: you return an error value, and then you just pass these around.
   <br/><br/>
   And that's a good thing because it forces us to think about error scenarios instead of just sweeping them under the rug,
-  and also lets us immediately see which functions can go wrong and which can't.
+  and also because it lets us look at the signature of a function and immediately know whether it can go wrong or not.
   <br/><br/>
   A function that can go wrong returns a tuple of a string and an error.
   If the function succeeds, you return a string and a null error.
-  If it fails, you return a null string and an error.
+  If it fails, you return a null string and an actual error.
 </Notes>
 
 ---
@@ -260,16 +260,17 @@ export default Split
 
 
 <Notes>
-  When you're able to freely combine products and sums, you say you have algebraic data types.
+  When you have a language that lets you freely combine products and sums, you say you have Algebraic Data Types.
   <br/><br/>
   And because products and sums complement each other, if they're both so fundamental, you'd think that every language should have these.
-  It doesn't make much sense to have one but not the other.
+  I don't think it makes a lot of sense to have one but not the other.
   <br/><br/>
   But for a long time, most if not all mainstream languages only supported product types.
   Luckily that's changing.
-  Lots of languages took a page from Haskell's book, and now Scala, Kotlin, Rust, Swift and TypeScript support this.
+  Lots of languages took a page from Haskell's book, and now you have Algebraic Data Types in Scala, Kotlin, Rust, Swift and TypeScript.
   <br/><br/>
-  Java doesn't support this natively, but there is a library that will generate all the boilerplate to emulate algebraic data types in Java.
+  Java doesn't support this natively, but there is a library that you can sprinkle some annotations and it will generate all the boilerplate
+  and make it seem like you do have ADTs in Java.
 </Notes>
 
 ---
@@ -279,9 +280,9 @@ export default Split
 <Notes>
   Let's talk about parsing.
   Say there's a string you have to parse, and you know it follows some kind of pattern.
-  And I ask you to find a piece of information in that string and extract it.
+  And I ask you to parse that string and extract some piece of information from it.
   The first thing many people would think of is regular expressions.
-  Anyone here a fan of regular expressions?
+  Anyone here a fan of regex?
 </Notes>
 
 ---
@@ -315,7 +316,7 @@ export default Split
   In Haskell there's this really famous library called parsec.
   The parsec library gives us a ton of primitive parsers.
   We can use a parser that matches on the string "hello", or a parser that matches on the character 'a',
-  or a parser that matches on any character at all *and* extracts it from the input string so we can use it later.
+  or a parser that matches on any character at all *and* extracts it so I can use it later.
 </Notes>
 
 ---
@@ -337,7 +338,7 @@ export default Split
 * ...
 
 <Notes>
-  And it also gives us a ton of combinators that we can use to glue these parsers together.
+  And it also gives us a ton of combinators that we can use to glue those little parsers together.
 </Notes>
 
 
@@ -348,7 +349,7 @@ parser = string "hello" <|> string "world"
 ```
 
 <Notes>
-  We may use the "or" combinator, to say I want to match on "hello" or "world".
+  We may use the "or" combinator (that's not its name, but let's call it that), to say I want to match on "hello" or "world".
 </Notes>
 
 ---
@@ -363,7 +364,8 @@ parser = do
 <Notes>
   I can use haskell's do-notation to compose a sequence of parsers.
   <br/><br/>
-  Here, I'm creating a new parser that will execute those 3 parsers sequentially, and succeed only if all 3 succeed.
+  Here, I'm creating a new parser that will execute those 3 parsers in sequence.
+  And it'll succeed if all 3 succeed, or it'll fail if any of those fail.
 </Notes>
 
 ---
@@ -378,7 +380,7 @@ parser = do
 
 <Notes>
   I can also use left arrows inside a do-block to say "when that sequence of parsers is run, and only if they're successful,
-  I want to use the data they captured, and then I'm going to put those two digits in a tuple".
+  I want to use the data they've captured, and in this case I'm just putting those two digits in a tuple".
 </Notes>
 
 ---
@@ -412,9 +414,9 @@ Right ["hello","world"]
 ```
 
 <Notes>
-  I can start by defining a parser for a simple word, which is just the "letter" parser repeated 1 or more times.
-  And I want to capture many of these words, separated by the comma character.
-  And I want all of this to be between brackets.
+  I can start by defining a parser for a simple word, which is simply just the "letter" parser repeated 1 or many times.
+  I want those words to be separated by the comma character,
+  and I want all of that to be surrounded by square brackets.
   And that's it!
 </Notes>
 ---
@@ -429,7 +431,7 @@ data Json = JNull
 ```
 
 <Notes>
-  What if we want something more complex? What if we want to parse a raw json string into a json values
+  What if we want something way more complex? What if we want to parse a raw json string into one of those json values
   that we defined earlier?
 </Notes>
 
@@ -470,15 +472,22 @@ jsonValue =
 <Notes>
   I can write a parser for that as well.
   Now, this slide is a bit heavy, but the basic idea is:
-  a json can be one of six things, so we define a parser for each of these six things.
+  if a piece of json can be one of six things, I'll just write six different parsers, one for each thing.
   <br/><br/>
-  And there you go, a json parser that fits in one slide, written in 30 minutes or less.
+  I'll look for the "null" reserved keyword.
+  I can also look for the "true" keyword, or if that fails I'll try "false".
+  I can look for a string literal, and that'll be my json string; or an optional sign and a floating point number.
+  My JArray is just gonna be a comma separated list of json values surrounded by brackets.
+  And my JObject is just gonna be a comma separated list of key-value pairs surrounded by braces.
+  <br/><br/>
+  And what's a key-value pair? Well, it's just a sequence of a string literal, a colon and a json value.
+  And my overall parser is just a choice between any of those six things.
   <br/><br/>
   Note that I didn't have to worry about handling any whitespace, or escaped quotes inside string literals,
-  or unicode characters or emojis in string literals.
-  I didn't have to deal with any of that, because those little parsers already do all that for me.
+  or unicode characters.
+  And there you go, a json parser that fits in one slide, written in 30 minutes or less.
   <br/><br/>
-  The point is, I can use a bunch of little reusable parsers off the shelf, and combine them, like Lego bricks.
+  The point I'm trying to make here is, I can use a bunch of little reusable parsers off the shelf, and combine them, like Lego bricks.
 </Notes>
 
 ---
@@ -542,7 +551,7 @@ export default Split
   Parser combinators are so easy to reuse and compose, that this `parsec` library
   has been ported to virtually every mainstream language.
   <br/><br/>
-  So next time you need to parse something, like command line arguments, first make sure to check whether a
+  So next time you need to parse something, like command line arguments, first check whether a
   parser combinator library exists for your language of choice.
 </Notes>
 
@@ -557,13 +566,13 @@ sort [3,2,1] == [1,2,3]
 ```
 
 <Notes>
-  Let's talk about testing.
   Say I'm writing a sort function (as you do. for a whiteboard interview or something, because why else would you write a sort function?),
   <br/><br/>
   and I want to write some tests to make sure it works.
   I might start with a simple test like this.
   <br/><br/>
-  But this doesn't guarantee that my sort function works!
+  But that doesn't guarantee that my sort function works at all!
+  It could just be reversing the input list.
   So I'll write some more.
 </Notes>
 
@@ -588,7 +597,7 @@ sort [2,1,1] == [1,1,2]
   Should I keep going?
   How many unit tests are enough? Will they *ever* be enough?
   <br/><br/>
-  The main problem here is that we're testing our function for very specific inputs.
+  The main problem here is that we're testing for specific inputs.
   What about inputs that we didn't think of?
   <br/><br/>
   So we need to take a step back and ask, what exactly are we testing here?
@@ -603,7 +612,7 @@ sort [2,1,1] == [1,1,2]
 * where every element >= the next.
 
 <Notes>
-  How about, instead of testing for specific inputs, we test for these two properties?
+  Instead of testing for specific inputs, we'll test for these two properties.
 </Notes>
 
 ---
@@ -623,9 +632,9 @@ prop_sortPermutation list =
 ```
 
 <Notes>
-  And this is exactly what QuickCheck lets us do.
+  And QuickCheck lets us do exactly that.
   I can encode properties as plain old functions.
-  So this is a function that takes a list, and we're saying: "for any list, any list at all, when I sort it, the result should be a permutation of the original list".
+  So this is a function that takes a list, and we're saying: "for any list, any list at all, when I sort it, I should get a permutation of the original list".
 </Notes>
 
 ---
@@ -661,12 +670,13 @@ quickCheck prop_sortMonotonicity
   And that's it, we've fully specified what it means to sort a list, no unit tests needed.
   <br/><br/>
   In practice though, you'll end up writing a mixture of both.
-  I usually try and test as much as possible using properties, and then fill in the gaps using unit tests.
+  What I personally do is try to encode as much as possible in types, and then write property based tests for the other things that are
+  too expensive to encode with types, and then fill in the gaps using unit tests.
   <br/><br/>
   This method came to be known as "Property Based Testing", and it's great, I think, for two reasons.
   <br/><br/>
   First, because it's essentially generating tests for me, it catches lots of weird edge cases that I would never even dream of testing for.
-  And second because it forces you to think about your program from a much higher level.
+  And second because it forces you to think about your program from a much higher perspective.
   It forces you to think about these properties, about the laws that govern your system.
 </Notes>
 
@@ -679,9 +689,9 @@ render :: Json -> String
 ```
 
 <Notes>
-  Let's look at another example.
-  If we go back to our json data type, you can imagine it would also make sense to write a `render` function
-  that converts a json value to a raw string.
+  One final example.
+  If we go back to our json data type, you can imagine we'll also have a `render` function
+  that sends that json value back to a raw string.
 </Notes>
 
 ---
@@ -698,10 +708,6 @@ prop_parseRender json =
   in the first place.
   <br/><br/>
   That's an incredibly useful property to have, because we want our encoders and decoders to be consistent.
-  <br/><br/>
-  The point I wanted to make here is, there is always some property that you can test about any piece of code.
-  It doesn't have to be a sorting algorithm, every piece of code has some property you can test for, we're just
-  not used to noticing them.
 </Notes>
 
 ---
@@ -767,8 +773,6 @@ export default Split
 
 <Notes>
   And again, this technique became so popular that implementations started popping up everywhere.
-  Just to name a few, F#, Scala, etc.
-  Python's hypothesis is really famous.
 </Notes>
 
 ---
@@ -786,7 +790,7 @@ do
 ```
 
 <Notes>
-  We've already seen Haskell's do-notation today, it's a great way of composing a sequence of parsers together.
+  We've already seen Haskell's do-notation today, we used it to compose a sequence of parsers together.
 </Notes>
 
 ---
@@ -839,7 +843,7 @@ export default Split
 
 <Notes>
   And some languages have already adopted this method of composition, like Scala, F# and C#.
-  C# is my favourite one.
+  I think C# is my favourite out of these ones.
 </Notes>
 
 ---
@@ -859,7 +863,7 @@ select new Person(validName, validAge)
 
 <Notes>
   C#'s version of do-notation is my favorite because it's really well disguised.
-  Most people who learn C# and come across LINQ assume that it's a little language for combining collections, and that's it, that's all it's capable of.
+  Most people when they learn C# and come across LINQ assume that it's a little language for combining collections, and that's it, that's all it's capable of.
   <br/><br/>
   When in fact, LINQ is so much more than that!
   <br/><br/>
@@ -927,10 +931,10 @@ export default Split
 
 <Notes>
   This is something I've never seen before.
-  Haskell's base library is so rich, that its core abstractions, its most fundamental blocks got ported and adapted to other languages.
-  And these abstractions became sorta like a standard toolkit for functional programming.
+  Haskell's base library is so rich, so full of really generic abstractions, that these abstractions started getting ported to other languages.
+  And these abstractions became like a standard toolkit for functional programming.
   <br/><br/>
-  If you're doing FP in any of these languages, there's a good chance you might be using one of these libraries.
+  If you're doing FP in any of these languages, there's a good chance you're using one of these libraries.
 </Notes>
 
 ---
@@ -953,11 +957,6 @@ export default Split4
 
 ![](img/langs/scala3.png) 
 
-<Notes>
-  And because Haskell is at the forefront of research,
-  there's lots of other more advanced type system features that tend to spread out as well.
-</Notes>
-
 ---
 
 export default Split
@@ -975,10 +974,10 @@ export default Split
 </div>
 
 <Notes>
-  And the most compelling piece of evidence for Haskell's proliferation is all the languages that were derived from it.
+  And the most compelling piece of evidence for Haskell's proliferation is all the languages that were born from it.
   <br/><br/>
-  Nowadays you can use Eta to write Haskell on the JVM, and it has great interoperability with Java.
-  They're also working on adding Android support at the moment.
+  Nowadays you can use Eta to write Haskell on the JVM, and it has great interoperability with Java, so you can use lot of the existing stuff.
+  They're also working on adding Android support at the moment, so I think the future is very bright there.
   <br/><br/>
   If you're into front-end, you can use Elm or PureScript.
   Elm is like a simpler version of Haskell, that compiles down to JavaScript.
@@ -1016,7 +1015,7 @@ export default Split
 <Notes>
   PureScript also compiles down to JavaScript, but it's capable of running on node.js, so you can write PureScript on the backend as well.
   <br/><br/>
-  And finally Dhall, it's a programmable configuration language,
+  And finally Dhall, the latest addition to the family, it's a programmable configuration language,
   sorta like JSON but with functions + types + imports on top.
 </Notes>
 
@@ -1050,7 +1049,7 @@ export default InlineImages
   My 2019 challenge to you is this:
   If Haskell is such a fertile ground for innovation and awesome ideas, why not just cut out the middle-man and get them straight from the source?
   Why wait? Why get them second-hand?
-  There's never been a better time to learn Haskell than now.
+  I personally think there's never been a better time to learn Haskell than today.
   <br/><br/>
   So if you decide to do it, the Haskell Book is probably the best place to start.
   I don't recommend learning Haskell by piecing a bunch of blog posts together.
@@ -1058,7 +1057,7 @@ export default InlineImages
   <br/><br/>
   If you're a student or if for whatever reason you can't afford it, you can contact the authors and they'll work out a discount.
   <br/><br/>
-  I've also heard good things about Get Programming with Haskell.
+  I've also heard really good things about Get Programming with Haskell.
   <br/><br/>
   There's an online course at typeclasses.com, they also do student discounts.
   <br/><br/>
@@ -1066,7 +1065,7 @@ export default InlineImages
   <br/><br/>
   If you have any questions at all, there's an FP Slack with an awesome community full of people from all over the world eager to give you a hand.
   There's also a local FP meetup here in Belfast.
-  And if there's anything I can help you with, you can find me on twitter or just come chat with me after the talk.
+  And if there's anything I can help you with, you can find me on twitter or just come talk to me after this.
   <br/><br/>
   That's all I have, thanks for listening!
 </Notes>
