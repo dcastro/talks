@@ -8,6 +8,7 @@ This was generated with [mdx-deck][]'s `npm init deck` command.
 To run the presentation deck in development mode:
 
 ```sh
+npm i
 npm start
 ```
 

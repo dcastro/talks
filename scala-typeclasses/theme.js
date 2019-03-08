@@ -1,12 +1,11 @@
-import theme from 'mdx-deck/themes'
+import { future } from 'mdx-deck/themes'
+import oceanicNext from "./Themes/oceanicNext.js"
 
 export default {
-  ...theme,
+  ...future,
 
-  // Customize your presentation theme here.
-  //
-  // Read the docs for more info:
-  // https://github.com/jxnblk/mdx-deck/blob/master/docs/theming.md
-  // https://github.com/jxnblk/mdx-deck/blob/master/docs/themes.md
-
+  codeSurfer: {
+    ...oceanicNext,
+    showNumbers: false,
+  },
 }
