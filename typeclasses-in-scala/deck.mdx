@@ -17,24 +17,150 @@ export { default as theme } from './theme'
 <!-- #### (Alt+P / Option+P for transcript) -->
 ---
 
+
 ```scala
-sealed trait X[A]
-
-case class K extends X[Int]
-
-object U {
-  def f(x: Int): Unit = 
-    x match {
-      case K(_) => 3
-      case K(_) => 8
-    }
-
-  implicit def lol[F[_]]: Functor[F] =
-    new Functor[F] {
-      def map[A](f: A => B)
-    }
+def postAsJson(content: ?) = {
+  val request = Request(content.toJson)
+  post(request)
 }
-----
-3: 10
 ```
 
+<Notes>
+  Say I want to write a function that takes a variable of any type that's convertible to Json.
+  I don't know what the type of that argument is going to be yet, but I want to be something that I can convert to JSON.
+  That could be strings, ints, your domain objects like `Person`, or a list of `Person`.
+  <br/><br/>
+  We want to be able to abstract over all these types, we want to be able to say "all these types are encodable, everything else isn't".
+</Notes>
+
+---
+
+```scala
+trait Encodable {
+  def toJson: Json
+}
+
+case class Person(name: String, age: Int) extends Encodable {
+
+  def toJson: Json =
+    Json.obj(
+      "name" := this.name,
+      "age"  := this.age
+    )
+}
+
+case class Person(name: String) extends Encodable {
+  ...
+}
+----
+1:3
+1:12
+*
+```
+
+<Notes>
+  Usually, in Java or C#, you'd solve this using an interface.
+  You define an interface for things that can be encoded, and then write classes that implement that interface.
+  You write a `toJson` method that converts the `this` object to Json.
+</Notes>
+
+---
+
+```scala
+def postAsJson(content: Encodable) = {
+  val request = Request(content.toJson)
+  post(request)
+}
+```
+
+<Notes>
+  And now we're able to complete the type signature for our function.
+  The argument `content` is of any type that implements the Encodable interface.
+</Notes>
+
+---
+
+```scala
+class String extends Encodable {
+
+  def toJson: Json =
+    ???
+}
+```
+
+<Notes>
+Let's try making other types encodable.
+String, for example, should be encodable.
+So we just add the `Encodable` interface to the `String` type.
+</Notes>
+
+---
+
+```scala
+//            |  nope
+//            v
+class String extends Encodable {
+
+  def toJson: Json =
+    Json.fromString(this)
+}
+```
+
+<Notes>
+But we can't do this! The String type is in the standard lib, we can't just change it and make it implement our interface!
+</Notes>
+
+---
+
+```scala
+class ListAdapter[A](list: List[A]) extends Encodable {
+
+  def toJson: Json =
+    Json.arr(
+      list.map(elem => elem.toJson)
+    )
+}
+```
+
+<Notes>
+  Let's try lists now.
+  We know we can't change Scala's list type, so let's declare our own list and make that encodable.
+  To encode a list of things, we just encode every single thing, and wrap them all up in a Json array, easy.
+</Notes>
+
+---
+```scala
+//                |  A needs to be encodable
+//                v
+class ListAdapter[A](list: List[A]) extends Encodable {
+
+  def toJson: Json =
+    ???
+}
+```
+
+<Notes>
+We can't do this either.
+</Notes>
+
+---
+
+### Limitations of interfaces
+
+* Can't make other people's types implement our interfaces
+* Can't implement interfaces conditionally
+
+---
+
+### What if I want to have more than 1 instance?
+
+* Don't use typeclasses
+
+---
+
+### Typeclasses
+
+* Introduced in Haskell
+* Rust
+* Kotlin (soon)
+* Scalar 3 (?)
