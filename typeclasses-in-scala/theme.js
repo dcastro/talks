@@ -1,5 +1,5 @@
 import { future } from 'mdx-deck/themes'
-import oceanicNext from "./Themes/oceanicNext.js"
+import vsDark from "prism-react-renderer/themes/vsDark"
 
 // By default, `mdx-deck` uses `react-syntax-highlighter` for code highlighting, which supports Scala out of the box:
 // https://yduman.github.io/blog/mdx-deck/
@@ -17,7 +17,7 @@ export default {
   ...future,
 
   codeSurfer: {
-    ...oceanicNext,
+    ...vsDark,
     showNumbers: false,
   },
 }
