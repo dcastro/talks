@@ -19,7 +19,7 @@ export { default as theme } from './theme'
 
 
 ```scala
-def postAsJson(content: ?) = {
+def postRequest(content: ?) = {
   val request = Request(content.toJson)
   post(request)
 }
@@ -49,7 +49,7 @@ case class Person(name: String, age: Int) extends Encodable {
     )
 }
 
-case class Person(name: String) extends Encodable {
+case class Dog(name: String) extends Encodable {
   ...
 }
 ----
@@ -67,7 +67,7 @@ case class Person(name: String) extends Encodable {
 ---
 
 ```scala
-def postAsJson(content: Encodable) = {
+def postRequest(content: Encodable) = {
   val request = Request(content.toJson)
   post(request)
 }
@@ -84,7 +84,7 @@ def postAsJson(content: Encodable) = {
 class String extends Encodable {
 
   def toJson: Json =
-    ???
+    Json.fromString(this)
 }
 ```
 
@@ -120,11 +120,15 @@ class ListAdapter[A](list: List[A]) extends Encodable {
       list.map(elem => elem.toJson)
     )
 }
+----
+*
+5
+4:6
 ```
 
 <Notes>
   Let's try lists now.
-  We know we can't change Scala's list type, so let's declare our own list and make that encodable.
+  We know we can't change Scala's list type, so let's declare our own list wrapper, that wraps around a standard list, and make that encodable.
   To encode a list of things, we just encode every single thing, and wrap them all up in a Json array, easy.
 </Notes>
 
@@ -135,13 +139,25 @@ class ListAdapter[A](list: List[A]) extends Encodable {
 class ListAdapter[A](list: List[A]) extends Encodable {
 
   def toJson: Json =
-    ???
+    Json.arr(
+      list.map(elem => elem.toJson)
+      //                   ^
+      //                   | Can't call `toJson`
+    )
 }
 ```
 
 <Notes>
 We can't do this either.
+We can't convert the elements of the list to Json because we don't know what type they are!
+We said our list can contain elements of any type `A`.
 </Notes>
+
+---
+
+### We want to say
+
+`List[A]` is encodable if and only if `A` is encodable.
 
 ---
 
@@ -149,6 +165,201 @@ We can't do this either.
 
 * Can't make other people's types implement our interfaces
 * Can't implement interfaces conditionally
+
+---
+
+## Enter typeclasses
+
+---
+
+```scala
+// the typeclass
+trait Encodable[A] {
+  def toJson(a: A): Json
+}
+
+// the data type
+case class Person(name: String, age: Int)
+
+object Person {
+
+  // the typeclass instance
+  implicit val encodeInstance: Encodable[Person] =
+    new Encodable[Person] {
+      def toJson(person: Person): Json = ???
+    }
+}
+
+----
+1:4
+1:7
+1:7,11,13:15
+*
+```
+
+<Notes>
+  First we define the typeclass.
+  It's still a trait, but we're gonna use it differently.
+  All typeclasses have at least one type parameter, in this case the type parameter `A`, and that's the type we're describing.
+  We're saying `A` is encodable if there's a `toJson` function that takes a value of type `A` and returns a `Json`.
+  <br/><br/>
+  Next we define our type, just like we usually do.
+  Notice how we don't need to extend anything.
+  The typeclass knows nothing about the type, and the type knows nothing about the typeclass.
+  They're completely separated.
+  <br/><br/>
+  And finally we create a typeclass *instance* that marries the two together.
+  We instantiate the trait, replacing `A` with `Person`.
+  We're creating a proof that values of type `Person` can be encoded.
+  <br/><br/>
+  And we have to mark it as implicit.
+  <br/><br/>
+  This is how you define a typeclass, but how do you use it?
+</Notes>
+---
+
+```scala
+def postRequest[A](content: A)(implicit instance: Encodable[A]) = {
+  val request = Request(instance.toJson(content))
+  post(request)
+}
+----
+*
+1[2:9]
+1[2:18]
+1[2:18], 2[6:11]
+```
+
+<Notes>
+  If we go back to our `postRequest` function and update it.
+  Now our `postRequest` method is capable of taking a value of any type `A`, as long as there's an 
+  `Encodable` instance for it defined somewhere.
+  So this `implicit` here works as a constraint.
+  We're saying, you can call this method with a value of any type as long as that type is encodable.
+  <br/><br/>
+  If that type is *not* encodable, that you can't call this method.
+  <br/><br/>
+  And then we can use the instance to convert the content to json.
+</Notes>
+
+---
+
+```scala
+def postRequest[A](content: A)(implicit instance: Encodable[A]) = {
+  val request = Request(instance.toJson(content))
+  post(request)
+}
+
+postRequest(Person("bob", 30))
+
+postRequest(Person("bob", 30))(Person.encodeInstance)
+//                                ^
+//                                |
+//     The compiler will automatically insert the instance here
+----
+1:6
+*
+```
+
+<Notes>
+  So if we try to call this method with a `Person`, the compiler will look for an implicit encoder for person.
+  If it can find one, it automatically inserts it there, and the code compiles and everything works fine.
+  <br/><br/>
+  Cool, but let's see if this solves the problems we had earlier.
+</Notes>
+
+---
+```scala
+def postRequest[A](content: A)(implicit instance: Encodable[A]) = {
+  val request = Request(instance.toJson(content))
+  post(request)
+}
+
+postRequest(Desk("wood"))
+//             ^
+//             |
+//     Doesn't compile.
+//     There is no `Encoder[Desk]`
+----
+*
+```
+
+---
+
+```scala
+implicit val encodeString: Encodable[String] =
+  new Encodable[String] {
+    def toJson(s: String): Json = ???
+  }
+
+postRequest("hello")
+----
+1:4
+*
+```
+
+<Notes>
+  So previously, we couldn't say thats strings are encodable, because we couldn't make it implement our interface.
+  But with typeclasses, all we have to do is create a new instance that says that strings are encodable, and that's it!
+</Notes>
+
+---
+
+
+```scala List[A] is encodable if A is encodable.
+implicit def encodeList[A]: Encodable[List[A]] =
+  new Encodable[A] {
+    def toJson(list: List[A]): Json = ???
+  }
+```
+
+<Notes>
+  The other problem we had was: we wanted to express that lists are encodable if their elements are encodable.
+  Let's start by defining a standard Encodable instance for lists.
+</Notes>
+
+---
+
+```scala List[A] is encodable if A is encodable.
+implicit def encodeList[A](implicit encodeElement: Encodable[A]): Encodable[List[A]] =
+  new Encodable[A] {
+    def toJson(list: List[A]): Json = ???
+  }
+----
+*
+1[17:23]
+1[7:23]
+```
+
+<Notes>
+  Now, we can add another implicit to express our constraint.
+  So now we're saying: "I'll give you an encoder for a list of `A`s, if you give me an encoder for a single `A`".
+  <br/><br/>
+  Again, we're using implicits to express constraints, or conditions.
+</Notes>
+
+---
+
+```scala List[A] is encodable if A is encodable.
+implicit def encodeList[A](implicit encodeElem: Encodable[A]): Encodable[List[A]] =
+  new Encodable[A] {
+    def toJson(list: List[A]): Json =
+      Json.arr(
+        list.map(elem => encodeElem.toJson(elem))
+      )
+  }
+
+postRequest(List(bob, tom))    // compiles
+
+postRequest(List(doggo))       // doesn't compile
+----
+1:7
+*
+```
+
+<Notes>
+  And now we can complete the definition by converting every element, wrapping everything in a json array, and everything will compile.
+</Notes>
 
 ---
 
@@ -164,3 +375,16 @@ We can't do this either.
 * Rust
 * Kotlin (soon)
 * Scalar 3 (?)
+
+<!-- 
+TODO:
+context bounds
+define it in the companion object of either type
+
+
+exercise: maybe not at the end, before explaining context bounds
+define an Orderable typeclass, instances for Int, long
+define a function `maximum` that takes a List[A] and returns an Option[A] with the max value or None
+curveball: define an `Orderable[Option[A]]` only if `A` itself is oderable.
+
+ -->
