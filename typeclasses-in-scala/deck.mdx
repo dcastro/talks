@@ -1,0 +1,630 @@
+import { Head } from 'mdx-deck'
+import { Notes } from 'mdx-deck'
+
+export { components } from 'mdx-deck-code-surfer'
+export { default as theme } from './theme'
+
+<Head>
+  <title>Typeclasses in Scala</title>
+  <meta property='og:title' content='Typeclasses in Scala' />
+  <meta property='og:image' content='https://talks.diogocastro.com/typeclasses-in-scala/img/card.png' />
+  <meta property='og:url'   content='https://talks.diogocastro.com/typeclasses-in-scala/' />
+  <meta name="twitter:creator" content="@dfacastro" />
+</Head>
+
+# Typeclasses in Scala
+
+<!-- #### (Alt+P / Option+P for speaker notes) -->
+---
+
+
+```scala
+def postRequest(content: ?) = {
+  val request = Request(content.toJson)
+  post(request)
+}
+```
+
+<Notes>
+  Say I want to write a function that takes a variable of any type that's convertible to Json.
+  I don't know what the type of that argument is going to be yet, but I want to be something that I can convert to JSON.
+  That could be strings, ints, your domain objects like `Person`, or a list of `Person`.
+  <br/><br/>
+  We want to be able to abstract over all these types, we want to be able to say "all these types are encodable, everything else isn't".
+</Notes>
+
+---
+
+```scala
+trait Encodable {
+  def toJson: Json
+}
+
+case class Person(name: String, age: Int) extends Encodable {
+
+  def toJson: Json =
+    Json.obj(
+      "name" := this.name,
+      "age"  := this.age
+    )
+}
+
+case class Dog(name: String) extends Encodable {
+  ...
+}
+----
+1:3
+1:12
+*
+```
+
+<Notes>
+  Usually, in Java or C#, you'd solve this using an interface.
+  You define an interface for things that can be encoded, and then write classes that implement that interface.
+  You write a `toJson` method that converts the `this` object to Json.
+</Notes>
+
+---
+
+```scala
+def postRequest(content: Encodable) = {
+  val request = Request(content.toJson)
+  post(request)
+}
+```
+
+<Notes>
+  And now we're able to complete the type signature for our function.
+  The argument `content` is of any type that implements the Encodable interface.
+</Notes>
+
+---
+
+```scala
+class String extends Encodable {
+
+  def toJson: Json =
+    Json.fromString(this)
+}
+```
+
+<Notes>
+Let's try making other types encodable.
+String, for example, should be encodable.
+So we just add the `Encodable` interface to the `String` type.
+</Notes>
+
+---
+
+```scala
+//            |  nope
+//            v
+class String extends Encodable {
+
+  def toJson: Json =
+    Json.fromString(this)
+}
+```
+
+<Notes>
+But we can't do this! The String type is in the standard lib, we can't just change it and make it implement our interface!
+</Notes>
+
+---
+
+```scala
+class ListWrapper[A](list: List[A]) extends Encodable {
+
+  def toJson: Json =
+    Json.arr(
+      list.map(elem => elem.toJson)
+    )
+}
+----
+*
+5
+4:6
+```
+
+<Notes>
+  Let's try lists now.
+  We know we can't change Scala's list type, so let's declare our own list wrapper, that wraps around a standard list, and is encodable.
+  To encode a list of things, we just encode every single thing, and wrap them all up in a Json array, easy.
+</Notes>
+
+---
+```scala
+//                |  A needs to be encodable
+//                v
+class ListWrapper[A](list: List[A]) extends Encodable {
+
+  def toJson: Json =
+    Json.arr(
+      list.map(elem => elem.toJson)
+      //                   ^
+      //                   | Can't call `toJson`
+    )
+}
+```
+
+<Notes>
+But we can't do this either.
+We can't call `toJson` on the elements of the list because we don't know whether they're encodable.
+<br/><br/>
+If we have a list of ints, sure, that's easy to encode.
+But if we have a list of functions, or a list of DB connections, we can't serialize that to JSON.
+</Notes>
+
+---
+
+### We want to say
+
+`List[A]` is encodable if and only if `A` is encodable.
+
+<Notes>
+  When we extend `Encodable`, we're saying all lists are encodable.
+  What we really want to say though, is that a list is encodable *IF* and only if its elements are encodable.
+  But plain-old interfaces are not expressive enough to let us say that.
+</Notes>
+
+---
+
+### Limitations of interfaces
+
+* Can't make other people's types implement our interfaces
+* Can't implement interfaces conditionally
+
+---
+
+## Enter typeclasses
+
+---
+
+```scala
+// the typeclass
+trait Encodable[A] {
+  def toJson(a: A): Json
+}
+
+// the data type
+case class Person(name: String, age: Int)
+
+object Person {
+
+  // the typeclass instance
+  implicit val encodeInstance: Encodable[Person] =
+    new Encodable[Person] {
+      def toJson(person: Person): Json = ???
+    }
+}
+
+----
+1:4
+1:7
+1:7,11,13:15
+*
+```
+
+<Notes>
+  First we define the typeclass.
+  It's still a trait, but we're gonna use it differently.
+  All typeclasses have at least one type parameter, in this case the type parameter `A`, and that's the type we're describing.
+  We're saying `A` is encodable if there's a `toJson` function that takes a value of type `A` and returns a `Json`.
+  <br/><br/>
+  Next we define our type, just like we usually do.
+  Notice how we don't need to extend anything.
+  The typeclass knows nothing about the type, and the type knows nothing about the typeclass.
+  They're completely separated.
+  <br/><br/>
+  And finally we create a typeclass *instance* that marries the two together.
+  We instantiate the trait, replacing `A` with `Person`.
+  We're creating a proof that values of type `Person` can be encoded.
+  <br/><br/>
+  And we have to mark it as implicit.
+  <br/><br/>
+  This is how you define a typeclass, but how do you use it?
+</Notes>
+---
+
+```scala
+def postRequest[A](content: A)(implicit instance: Encodable[A]) = {
+  val request = Request(instance.toJson(content))
+  post(request)
+}
+----
+*
+1[2:9]
+1[2:18]
+1[2:18], 2[6:11]
+```
+
+<Notes>
+  If we go back to our `postRequest` function and update it.
+  Now our `postRequest` method is capable of taking a value of any type `A`, as long as there's an 
+  `Encodable` instance for it defined somewhere.
+  So this `implicit` here works as a constraint.
+  We're saying, you can call this method with a value of any type as long as that type is encodable.
+  <br/><br/>
+  If that type is *not* encodable, that you can't call this method.
+  <br/><br/>
+  And then we can use the instance to convert the content to json.
+</Notes>
+
+---
+
+```scala
+def postRequest[A](content: A)(implicit instance: Encodable[A]) = {
+  val request = Request(instance.toJson(content))
+  post(request)
+}
+
+postRequest(Person("bob", 30))
+
+postRequest(Person("bob", 30))(Person.encodeInstance)
+//                                ^
+//                                |
+//     The compiler will automatically insert the instance here
+----
+1:6
+*
+```
+
+<Notes>
+  So if we try to call this method with a `Person`, the compiler will look for an implicit encoder for person.
+  If it can find one, it automatically inserts it there, and the code compiles and everything works fine.
+  <br/><br/>
+  Cool, but let's see if this solves the problems we had earlier.
+</Notes>
+
+---
+```scala
+def postRequest[A](content: A)(implicit instance: Encodable[A]) = {
+  val request = Request(instance.toJson(content))
+  post(request)
+}
+
+postRequest(Desk("wood"))
+//             ^
+//             |
+//     Doesn't compile.
+//     There is no `Encoder[Desk]`
+----
+*
+```
+
+---
+
+```scala
+implicit val encodeString: Encodable[String] =
+  new Encodable[String] {
+    def toJson(s: String): Json = ???
+  }
+
+postRequest("hello")
+----
+1:4
+*
+```
+
+<Notes>
+  So previously, we couldn't say thats strings are encodable, because we couldn't make it implement our interface.
+  But with typeclasses, all we have to do is create a new instance that says that strings are encodable, and that's it!
+</Notes>
+
+---
+
+
+```scala List[A] is encodable if A is encodable.
+implicit def encodeList[A]: Encodable[List[A]] =
+  new Encodable[A] {
+    def toJson(list: List[A]): Json = ???
+  }
+```
+
+<Notes>
+  The other problem we had was: we wanted to express that lists are encodable if their elements are encodable.
+  Let's start by defining a standard Encodable instance for lists.
+</Notes>
+
+---
+
+```scala List[A] is encodable if A is encodable.
+implicit def encodeList[A](implicit encodeElement: Encodable[A]): Encodable[List[A]] =
+  new Encodable[A] {
+    def toJson(list: List[A]): Json = ???
+  }
+----
+*
+1[17:23]
+1[7:23]
+```
+
+<Notes>
+  Now, we can add another implicit to express our constraint.
+  So now we're saying: "I'll give you an encoder for a list of `A`s, if you give me an encoder for a single `A`".
+  <br/><br/>
+  Again, we're using implicits to express constraints, or conditions.
+</Notes>
+
+---
+
+```scala List[A] is encodable if A is encodable.
+implicit def encodeList[A](implicit encodeElem: Encodable[A]): Encodable[List[A]] =
+  new Encodable[A] {
+    def toJson(list: List[A]): Json =
+      Json.arr(
+        list.map(elem => encodeElem.toJson(elem))
+      )
+  }
+
+postRequest(List(bob, tom))    // compiles
+
+postRequest(List(doggo))       // doesn't compile
+----
+1:7
+*
+```
+
+<Notes>
+  And now we can complete the definition by converting every element, wrapping everything in a json array, and everything will compile.
+</Notes>
+
+---
+
+## Typeclasses in the wild
+
+---
+
+```scala
+trait Numeric[A] {
+  def plus(x: A, y: A): A
+  def times(x, A, y: A): A
+  ...
+
+  def zero: A
+}
+```
+
+<Notes>
+  Just as an example, in scala's standard library, there's a typeclass that describes numeric types.
+  A type is numeric if you can add two values of type A and return a third value of type A.
+</Notes>
+
+---
+
+```scala
+implicit val numericLong: Numeric[Long] =
+  new Numeric[Long] {
+    def plus(x: Long, y: Long): Long = x + y
+    def times(x: Long, y: Long): Long = x * y
+    ...
+
+    def zero: 0L
+  }
+
+implicit val numericInt: Numeric[Int] =
+  new Numeric[Int] {
+    def plus(x: Int, y: Int): Int = x + y
+    def times(x: Int, y: Int): Long = x * y
+    ...
+
+    def zero: 0
+  }
+```
+
+<Notes>
+  And then there's typeclass instances for Long, Int, etc.
+</Notes>
+
+---
+
+```scala
+
+def sum[A](list: List[A])(implicit numericA: Numeric[A]): A =
+  ???
+
+sum(List(1, 2, 3))          // 6
+
+sum(List(1L, 2L, 3L))       // 6L
+
+sum(List(1.0d, 2.0d, 3.0d)) // 6.0d
+
+sum(List(bob, tom))         // doesn't compile
+```
+
+<Notes>
+  And with this typeclass, we're able to abstract over all numeric types.
+  For example, we can define a `sum` function that calculates the total sum of a list of any numeric type.
+</Notes>
+
+---
+
+### Moar typeclasses!
+
+* Standard lib
+  * `Numeric[A]`
+  * `Integral[A]` / `Fractional[A]`
+  * `Ordering[A]`
+* Circe
+  * `Encoder[A]`
+  * `Decoder[A]`
+* Akka: `FromEntityUnmarshaller[A]`
+* Diff: `Entity[A, K]`
+
+---
+
+### Moar typeclasses!
+
+* Cats
+  * `Eq[A]`
+  * `Show[A]`
+  * `Semigroup[A]`
+  * `Functor[F]`
+  * `Applicative[F]`
+  * `Monad[F]`
+  * `Traverse[F]`
+
+---
+
+### Typeclass coherence
+
+* No overlapping instances
+* No orphan instances
+
+<Notes>
+  There are two rules you need to follow to avoid shooting yourself in the foot when using typeclasses.
+</Notes>
+
+---
+
+```scala No overlapping instances!
+implicit val ordPersonByName: Ordering[Person]
+implicit val ordPersonByAge:  Ordering[Person]
+
+implicit val encodeSeq:  Encoder[Seq[A]]
+implicit val encodeList: Encoder[List[A]]
+
+implicit val encodeList:       Encoder[List[A]]
+implicit val encodeListOfInts: Encoder[List[Int]]
+```
+
+<Notes>
+  The first rule is: never create two instances that might overlap with each other.
+  <br/><br/>
+  For a given typeclass and a given data type, there should always be either 0 or 1 instances, never more.
+</Notes>
+
+---
+
+```plain No overlapping instances!
+Error:(14, 78) ambiguous implicit values:
+ both value encodePerson1 in object T of type => Encoder[A$A5.this.Person]
+ and value encodePerson2 in object T of type => Encoder[A$A5.this.Person]
+ match expected type Encoder[A$A5.this.Person]
+```
+
+---
+
+```scala No orphan instances!
+// Always declare the instance
+// in the data type's companion object
+
+object Person {
+  implicit val encodePerson: Encoder[Person] = ???
+}
+
+
+
+// or in the typeclass's companion object
+
+object Encoder {
+  implicit val encodeInt: Encoder[Int] = ???
+}
+----
+1:6
+*
+```
+
+<Notes>
+  The second rule is that an instance must *ALWAYS* be declared in either the data type's companion object,
+  or the typeclass's companion object.
+</Notes>
+---
+
+```plain No orphan instances!
+Error:(9, 78) could not find implicit value for parameter e: Encoder[A$A0.this.Person]
+```                                                                            
+
+<Notes>
+  When you don't declare it in one of these two places, when you have an orphan instance,
+  you get an error like this.
+  And then you have to manually add an import to make it compile, and then everyone's confused because
+  the code compiles with the import, but doesn't compile without it.
+  <br/><br/>
+  So if you follow these rules, you'll never need special magical imports.
+  <br/><br/>
+  The reason why you sometimes see weird errors like these is usually
+  because not everyone follows these two rules (i've been guilty of that myself).
+</Notes>
+
+---
+
+### Typeclass coherence
+
+* No overlapping instances
+* No orphan instances
+
+---
+
+### What if I want to have more than 1 instance?
+
+<Notes>
+  What if I have a data type `Person`, and I want to encode it one two different ways.
+  Sometimes I want the fields to be snake cased, other times camel cased.
+</Notes>
+
+---
+
+```scala
+// Don't use a typeclass! ...
+
+case class Person(...)
+
+object Person {
+  def encodeSnakeCase(p: Person): Json = ???
+
+  def encodeCamelCase(p: Person): Json = ???
+}
+```
+
+---
+
+```scala
+case class Person(...)
+
+object Person {
+  implicit val encodePerson: Encoder[Person] = ???
+}
+
+// ... or create a wrapper type.
+case class PersonSnakeCase(p: Person)
+
+object PersonSnakeCase {
+  implicit val encodePerson: Encoder[PersonSnakeCase] = ???
+}
+
+```
+
+---
+
+## Syntax sugar
+
+---
+
+```scala Context bounds
+implicit def sum[A](list: List[A])(implicit numericA: Numeric[A]): A
+
+implicit def sum[A : Numeric](list: List[A]): A
+----
+*
+1[4:6, 15:22], 3[5:9]
+```
+
+---
+
+### Typeclasses
+
+* Introduced in Haskell
+* Rust
+* Kotlin (soon)
+* Scala 3 (soon)
+
+<Notes>
+  If someone wants to do a session on something they've recently learned, you're more than welcome to.
+  Or, the other way around, if there's something about Scala you want to know more about, something that
+     you find confusing for example, just say the word and we'll get something organized.
+</Notes>
+
+<!-- 
+curveball: define an `Orderable[Option[A]]` only if `A` itself is oderable.
+-->
