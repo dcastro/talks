@@ -14,7 +14,7 @@ export { default as theme } from './theme'
 
 # Typeclasses in Scala
 
-<!-- #### (Alt+P / Option+P for transcript) -->
+<!-- #### (Alt+P / Option+P for speaker notes) -->
 ---
 
 
@@ -113,7 +113,7 @@ But we can't do this! The String type is in the standard lib, we can't just chan
 ---
 
 ```scala
-class ListAdapter[A](list: List[A]) extends Encodable {
+class ListWrapper[A](list: List[A]) extends Encodable {
 
   def toJson: Json =
     Json.arr(
@@ -128,7 +128,7 @@ class ListAdapter[A](list: List[A]) extends Encodable {
 
 <Notes>
   Let's try lists now.
-  We know we can't change Scala's list type, so let's declare our own list wrapper, that wraps around a standard list, and make that encodable.
+  We know we can't change Scala's list type, so let's declare our own list wrapper, that wraps around a standard list, and is encodable.
   To encode a list of things, we just encode every single thing, and wrap them all up in a Json array, easy.
 </Notes>
 
@@ -136,7 +136,7 @@ class ListAdapter[A](list: List[A]) extends Encodable {
 ```scala
 //                |  A needs to be encodable
 //                v
-class ListAdapter[A](list: List[A]) extends Encodable {
+class ListWrapper[A](list: List[A]) extends Encodable {
 
   def toJson: Json =
     Json.arr(
@@ -148,9 +148,11 @@ class ListAdapter[A](list: List[A]) extends Encodable {
 ```
 
 <Notes>
-We can't do this either.
-We can't convert the elements of the list to Json because we don't know what type they are!
-We said our list can contain elements of any type `A`.
+But we can't do this either.
+We can't call `toJson` on the elements of the list because we don't know whether they're encodable.
+<br/><br/>
+If we have a list of ints, sure, that's easy to encode.
+But if we have a list of functions, or a list of DB connections, we can't serialize that to JSON.
 </Notes>
 
 ---
@@ -363,6 +365,74 @@ postRequest(List(doggo))       // doesn't compile
 
 ---
 
+## Typeclasses in the wild
+
+---
+
+```scala
+trait Numeric[A] {
+  def plus(x: A, y: A): A
+  def times(x, A, y: A): A
+  ...
+
+  def zero: A
+}
+```
+
+<Notes>
+  Just as an example, in scala's standard library, there's a typeclass that describes numeric types.
+  A type is numeric if you can add two values of type A and return a third value of type A.
+</Notes>
+
+---
+
+```scala
+implicit val numericLong: Numeric[Long] =
+  new Numeric[Long] {
+    def plus(x: Long, y: Long): Long = x + y
+    def times(x: Long, y: Long): Long = x * y
+    ...
+
+    def zero: 0L
+  }
+
+implicit val numericInt: Numeric[Int] =
+  new Numeric[Int] {
+    def plus(x: Int, y: Int): Int = x + y
+    def times(x: Int, y: Int): Long = x * y
+    ...
+
+    def zero: 0
+  }
+```
+
+<Notes>
+  And then there's typeclass instances for Long, Int, etc.
+</Notes>
+
+---
+
+```scala
+
+def sum[A](list: List[A])(implicit numericA: Numeric[A]): A =
+  ???
+
+sum(List(1, 2, 3))          // 6
+
+sum(List(1L, 2L, 3L))       // 6L
+
+sum(List(1.0d, 2.0d, 3.0d)) // 6.0d
+
+sum(List(bob, tom))         // doesn't compile
+```
+
+<Notes>
+  And with this typeclass, we're able to abstract over all numeric types.
+  For example, we can define a `sum` function that calculates the total sum of a list of any numeric type.
+</Notes>
+
+---
+
 ### What if I want to have more than 1 instance?
 
 * Don't use typeclasses
@@ -382,9 +452,18 @@ context bounds
 define it in the companion object of either type
 
 
+
+
 exercise: maybe not at the end, before explaining context bounds
 define an Orderable typeclass, instances for Int, long
 define a function `maximum` that takes a List[A] and returns an Option[A] with the max value or None
 curveball: define an `Orderable[Option[A]]` only if `A` itself is oderable.
+
+
+say: if someone wants to do a session on something they've recently learned, you're more than welcome to
+ask: or, the other way around, if there's something about Scala you want to know more about, something that
+     you find confusing for example, just say the word and we'll get something organized
+
+
 
  -->
