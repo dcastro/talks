@@ -18,7 +18,9 @@ export default {
 
   codeSurfer: {
     ...vsDark,
-    showNumbers: false,
-  },
+    plain: {},
+    styles: [],
+    showNumbers: false 
+  }
 }
 
