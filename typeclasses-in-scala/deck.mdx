@@ -1,7 +1,7 @@
 import { Head } from 'mdx-deck'
 import { Notes } from 'mdx-deck'
-export { components } from 'mdx-deck-code-surfer'
 
+export { components } from 'mdx-deck-code-surfer'
 export { default as theme } from './theme'
 
 <Head>
@@ -433,11 +433,38 @@ sum(List(bob, tom))         // doesn't compile
 
 ---
 
+### Moar typeclasses!
+
+* Standard lib
+  * `Numeric[A]`
+  * `Integral[A]` / `Fractional[A]`
+  * `Ordering[A]`
+* Circe
+  * `Encoder[A]`
+  * `Decoder[A]`
+* Akka: `FromEntityUnmarshaller[A]`
+* Diff: `Entity[A, K]`
+
+---
+
+### Moar typeclasses!
+
+* Cats
+  * `Eq[A]`
+  * `Show[A]`
+  * `Functor[A]`
+  * `Applicative[A]`
+  * `Monad[A]`
+  * `Traverse[A]`
+
+---
+
 ### What if I want to have more than 1 instance?
 
 * Don't use typeclasses
 
 ---
+
 
 ### Typeclasses
 
