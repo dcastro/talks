@@ -16,5 +16,5 @@
     "mdx-deck": "1.10.2",
     "mdx-deck-code-surfer": "0.5.5"
   },
-  "name": "typeclasses-in-scala"
+  "name": "cats-typeclasses"
 }

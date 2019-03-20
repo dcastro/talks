@@ -1,0 +1,1025 @@
+import { Head } from 'mdx-deck'
+import { Notes } from 'mdx-deck'
+
+export { components } from 'mdx-deck-code-surfer'
+export { default as theme } from './theme'
+
+<Head>
+  <title>Cats typeclasses</title>
+  <meta property='og:title' content='Cats typeclasses' />
+  <meta property='og:image' content='https://talks.diogocastro.com/cats-typeclasses/img/card.png' />
+  <meta property='og:url'   content='https://talks.diogocastro.com/cats-typeclasses/' />
+  <meta name="twitter:creator" content="@dfacastro" />
+</Head>
+
+# Cats Typeclasses
+
+<!-- #### (Alt+P / Option+P for speaker notes) -->
+
+
+---
+
+## Cats typeclasses
+
+* Functor
+* Applicative functor
+* Monad
+* Traverse
+
+---
+
+```scala Imports
+import cats._
+import cats.implicits._
+
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+```
+
+---
+
+```scala map
+> List(1, 2, 3).map(x => x + 1)
+
+< List(2, 3, 4)
+```
+
+<Notes>
+  You've probably already used or seen someone using `map` to transform a list.
+</Notes>
+
+---
+
+```scala map
+Some(3).map(x => x + 1)
+
+Future(user).map(u => u.userId)
+```
+
+<Notes>
+  And you've probably already used map on other data types as well, like `Option` and `Future`
+</Notes>
+
+---
+
+`map` is used to transform:
+
+* `List[A]` - *each and every* element in the list
+* `Either[E, A]` - the right value, *if it exists*
+* `Validated[E, A]` - the value, *if it's valid*
+* `Option[A]` - the optional value, *if it exists*
+* `Future[A]` - the computed value, *if and when* it is computed
+* `Gen[A]` - any value created by this generator
+
+<Notes>
+  It turns out there are lots of data types that define a `map` function.
+  And in all those cases, `map` always means something slightly different.
+</Notes>
+
+---
+
+```scala
+def map[A, B](fa: List[A]  )(f: A => B): List[B]
+def map[A, B](fa: Stream[A])(f: A => B): Stream[B]
+def map[A, B](fa: Option[A])(f: A => B): Option[B]
+def map[A, B](fa: Future[A])(f: A => B): Future[B]
+def map[A, B](fa: Gen[A]   )(f: A => B): Gen[B]
+```
+
+<Notes>
+  However, even though they do different things, they have 2 things in common.
+  First, they never affect the structure itself, just its contents.
+  If you're mapping over a list, and your list has 5 elements, the resulting list will also have 5 elements.
+  If you're mapping over an Option, and that option is a Some, the result will also be a Some.
+  If your future was successful, the result will also be successful.
+  <br/><br/>
+  Second, they kinda share the same type signature.
+  <br/><br/>
+  Which means we can generalise all these functions into a more generic one.
+  All we have to do is replace the things that vary (List, Option, etc)...
+</Notes>
+
+---
+
+```scala One map to rule them all!
+def map[A, B](fa: F[A])(f: A => B): F[B]
+```
+
+<Notes>
+  ...  with a type variable.
+</Notes>
+
+---
+
+```scala One map to rule them all!
+trait Functor[F[_]] {
+  def map[A, B](fa: F[A])(f: A => B): F[B]
+}
+```
+
+<Notes>
+  Which brings us to our first abstraction of the day.
+  Functor is a typeclass that comes with the `cats` library, and generalises the concept of mapping over a type.
+  <br/><br/>
+  We say that a type `F` is a functor if it itself takes another type parameter, and you can map over it.
+</Notes>
+
+---
+
+```scala One map to rule them all!
+trait Functor[F[_]] {
+  def map[A, B](fa: F[A])(f: A => B): F[B]
+}
+
+implicit val listFunctor:   Functor[List] = ???
+implicit val optionFunctor: Functor[Option] = ???
+implicit val genFunctor:    Functor[Gen] = ???
+```
+
+<Notes>
+  And then we can create typeclass instances for all functors.
+  <br/><br/>
+  For example, we can say that List is a functor, by create an implicit instance of the trait, and
+  specialising `F` to `List`.
+  And then add an implemetation that says what it *means* to map over a list.
+</Notes>
+
+---
+
+```scala
+def unzip[A, B](list: List[(A, B)]): (List[A], List[B]) = {
+
+  val justTheAs = fab.map { case (a, b) => a }
+  val justTheBs = fab.map { case (a, b) => b }
+
+  (justTheAs, justTheBs)
+}
+
+
+
+> unzip(List(("a", 1), ("b", 2)))
+
+< (List(a, b),List(1, 2))
+```
+
+<Notes>
+  Why is this useful?
+  Why should you care about functors?
+  <br/><br/>
+  Because there are lots of functions that we define over and over and over again for lists, futures, options, etc,
+  that we could instead just define once for all functors and be done with it.
+  <br/><br/>
+  Here's an example, a function called `unzip`, that separates a list of tuples, into a tuple of lists.
+  If you look closely, you'll notice that all this function does is call `map` on the list.
+  <br/><br/>
+  That's all it needs, a map function, nothing more.
+  Which means, that this function doesn't work just on lists, it works on anything that has a `map` function.
+</Notes>
+
+---
+
+```scala
+def unzip[A, B](list: List[(A, B)]): (List[A], List[B]) = 
+
+def unzip[F[_] : Functor, A, B](fab: F[(A, B)]): (F[A], F[B]) =
+----
+1[10:17, 21:31], 3[4:10, 19:26, 30:40]
+```
+
+<Notes>
+  So we can generalise `unzip`
+  by replacing List with a type variable F, and adding a typeclass constraint to say that F
+  could be any type, as long as it's a functor, as long as we can map over it.
+</Notes>
+
+---
+
+```scala
+def unzip[F[_] : Functor, A, B](fab: F[(A, B)]): (F[A], F[B]) = {
+
+  val justTheAs = fab.map { case (a, b) => a }
+  val justTheBs = fab.map { case (a, b) => b }
+
+  (justTheAs, justTheBs)
+}
+
+
+
+> unzip(Option(("a", 1)))
+
+< (Some(a),Some(1))
+```
+
+<Notes>
+  Now I can call my `unzip` function on options, futures, generators.
+  Instead of defining `unzip` lots and lots of times, I can define it just once and make it work with all functors ever.
+</Notes>
+
+---
+
+## Applicative Functors
+
+---
+
+### Applicative
+
+* A special kind of functor
+* It lets you map over *many* `F[_]` simultaneuosly
+* And you can embed a value `A` in a `F[A]`
+
+---
+
+```scala
+> (Option(1), Option(2)).mapN(
+    (x, y) => x + y
+  )
+
+< Option(3)
+```
+
+<Notes>
+  For example,
+  If I've got two options, I may want to combine them into a single option and merge their results.
+</Notes>
+
+---
+
+```scala mapN
+(Valid(username), Valid(userId)).mapN(
+  (validUsername, validUserId) => User(validUsername, validUserId)
+)
+
+(Future(readFiles), Future(callService)).mapN(
+  (fileRows, httpRows) => fileRows ++ httpRows
+)
+```
+
+<Notes>
+  Or if I'm validating a username and a user ID, i may want to then merge them into a valid user, if both the username and the user id pass validation.
+  <br/><br/>
+  Or if I've got two futures, I may want to collect their results into a single list.
+  <br/><br/>
+  All these data types are applicative functors.
+  Again, just like functors generalise the concept of mapping over one thing,
+  applicatives generalise the concept of merging and mapping over multiple independent things.
+</Notes>
+
+---
+
+```scala
+1.pure[Option]
+1.pure[List]
+1.pure[Future]
+1.pure[Gen]
+```
+
+<Notes>
+  The other thing you can do with applicative functors is embed a raw value like an Int in a context.
+  <br/><br/>
+  `1.pure[Option]` is going to wrap the value 1 in a `Some`.<br/><br/>
+  `1.pure[List]` is going to wrap the value 1 in a list with the number 1 inside.<br/><br/>
+  `1.pure[Future]` is going to wrap the value 1 in a future that always returns that number.<br/><br/>
+  `1.pure[Gen]` is going to wrap the value 1 in a future that always generates the same number.
+</Notes>
+
+<!-- ---
+
+```scala
+trait Applicative[F[_]] extends Functor[F] {
+  def product[A, B](fa: F[A], fb: F[B]): F[(A, B)]
+
+  def pure[A](a: A): F[A]
+}
+``` -->
+
+---
+
+```scala Recap
+map:           F[A]             A => B     F[B]
+
+
+mapN:      (F[A], F[B])      (A, B) => C   F[C]
+
+
+pure:                             A        F[A]
+```
+
+---
+
+## Monad
+
+---
+
+### Monad
+
+* A special kind of applicative functor
+* Lets you chain multiple `F[_]`
+  * where one depends on the result of the other
+
+<Notes>
+  A monad is a special kind of applicative functor, meaning a monad does everything an applicative does,
+  with one additional feature.
+</Notes>
+
+---
+
+```scala
+def getUser(username: String): Future[User] = ???
+
+def getFriends(userId: Int): Future[Friends] = ???
+
+
+
+val getBob: Future[User] = getUser("bob")
+
+val result: ? =
+  getBob.map(user => getFriends(user.id))
+----
+1:3
+1:3, 7
+*
+```
+
+<Notes>
+  For example, say we have a function that if you give it a username, it'll retrieves a User from the database.
+  And then we have another function that given a user's id, it'll retrieve his friends.
+  <br/><br/>
+  So the first thing we do is call `getUser`, and that gives us a `Future[User]`.
+  And then we want to use that user's ID, so we map over it and say "when that user comes back from the database,
+  I want to pass his user ID to `getFriends`"
+  <br/><br/>
+  Anyone care to guess what the type of `result` is going to be?
+</Notes>
+
+---
+
+### Following the types
+
+<Notes>
+  When you're faced complex types, this can be a bit daunting, so
+  I'll show you a technique people usually call "following the types".
+</Notes>
+
+---
+
+```plain
+f(x, y) = x * y + x
+
+
+f(2, 3) = 2 * 3 + 2 = 8
+----
+1
+*
+```
+
+<Notes>
+  If you have an expression like this and you're trying to make sense of it,
+  you'll probably start by replacing the variables with concrete values.
+</Notes>
+
+---
+
+```scala Following the types
+map:           F[A]        A => B     F[B]
+```
+
+<Notes>
+  Just like we can replace variables with concrete variables,
+  we can replace type variables with concrete types.
+  <br/><br/>
+  So let's have another look at the signature of `map`.
+  There's three type variables here: F, A and B.
+  <br/><br/>
+  Let's start with `F`.
+  Since we're maping over futures, we know F = Future.
+  So let's go ahead and replace F with Future.
+</Notes>
+
+---
+
+```scala Following the types
+map:       F[A]      A => B     F[B]
+
+map:    Future[A]    A => B   Future[B]
+```
+
+<Notes>
+  Right, that's progress.
+  Next, A and B.
+  Map takes a function from A to B.
+</Notes>
+
+---
+
+```scala Following the types
+user => getFriends(user.id)  :  User => Future[Friends]
+----
+1[0:7]
+*
+```
+
+<Notes>
+  This is the function we're passing to map.
+  And this function takes a `User`, and returns a `Future` of their friends.
+  Therefore, our `A` type variable is going to be `User`, and `B` is `Future[Friends]`.
+</Notes>
+---
+
+```scala Following the types
+map:         F[A]          A => B                         F[B]
+
+map:      Future[A]        A => B                       Future[B]
+
+map:    Future[User]   (User => Future[Friends])   Future[Future[Friends]]
+
+```
+
+<Notes>
+  So now if we replace A with User, and B with Future[Friends], we can see that the final result
+  is going to be Future[Future[Friends]].
+  <br/><br/>
+  This is just a little simple technique for grasping complex signatures with lots of type variables,
+  just start substituting them until it makes sense.
+  <br/><br/>
+  It takes a bit of time to get a handle on this, there's a learning curve here, but in time it'll become
+  natural to you, and you'll be able to do all of this in your head.
+  And even though it seems like a massive pain in the butt right now, when you get used to, you can use all of this
+  to your advantage.
+  <br/><br/>
+  Like any other tool, it takes time to learn how to wield it. It's a price you pay upfront, but you only pay it once.
+  But once you do learn it, it's an incredibly useful tool to have in your toolbelt.
+</Notes>
+
+---
+
+### Back to our regularly scheduled programming
+
+---
+
+```scala
+def getUser(username: String): Future[User] = ???
+
+def getFriends(userId: Int): Future[Friends] = ???
+
+
+
+val getBob: Future[User] = getUser("bob")
+
+val result: Future[Future[Friends]] =
+  getBob.map(user => getFriends(user.id))
+----
+9[4:10], 10[1:2]
+```
+
+<Notes>
+  So if we go back to our code, we now know that mapping over as future with another future, we get
+  a nested future as a result.
+  And if I had 3 futures I wanted to run, I'd end up with `Future[Future[Future[Friends]]]`
+  <br/><br/>
+  But this isn't really useful, right?
+  We want to have a plain `Future[Friends]`.
+</Notes>
+
+---
+
+```scala
+def getUser(username: String): Future[User] = ???
+
+def getFriends(userId: Int): Future[Friends] = ???
+
+
+
+val getBob: Future[User] = getUser("bob")
+
+val result: Future[Friends] =
+  getBob.map(user => getFriends(user.id)).flatten
+----
+9[4:7], 10[1:2, 13:14]
+```
+
+<Notes>
+  This is where monads come in, because monads give us a `flatten` function, that flattens the nested future.
+  This gives us a *new* future, that will run the other two futures sequentially.
+</Notes>
+---
+
+```scala
+def getUser(username: String): Future[User] = ???
+
+def getFriends(userId: Int): Future[Friends] = ???
+
+
+
+val getBob: Future[User] = getUser("bob")
+
+val result: Future[Friends] =
+  getBob.flatMap(user => getFriends(user.id))
+----
+9[4:7], 10[1:2]
+```
+
+<Notes>
+  Or, instead of mapping and then flattening, we can do both things in one step with `flatMap`.
+</Notes>
+
+---
+
+```scala
+trait Monad[F[_]] extends Applicative[F[_]] {
+
+  def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B]
+
+}
+```
+
+<Notes>
+  And again, just like functors generalize `map`, and applicatives generalize `mapN`, monads generalize `flatMap`
+</Notes>
+
+---
+
+```scala
+map:          F[A]      A => B       F[B]
+
+flatMap:      F[A]      A => F[B]    F[B]
+```
+
+<Notes>
+  Let's have a look at flatMap's signature, because I know this can get a bit confusing.
+  As you can see from the types, map and flatMap are very similar.
+  <br/><br/>
+  Map lets you replace the content of a structure, without affecting the structure itself.
+  But `flatMap` lets you replace the content *AND* the wrapper with a new wrapper.
+</Notes>
+
+---
+
+```scala Recap
+map:           F[A]             A => B        F[B]
+
+
+mapN:      (F[A], F[B])      (A, B) => C      F[C]
+
+
+pure:                             A           F[A]
+
+
+flatMap:       F[A]            A => F[B]      F[B]
+
+
+flatten:                        F[F[A]]       F[A]
+```
+
+---
+
+```scala For-comprehensions = flatMap+map
+for {
+  user    <- getUser("bob")
+  friends <- getFriends(user.id)
+} yield friends
+
+getUser("bob")
+  .flatMap(user => getFriends(user.id))
+  .map(friends => friends)
+```
+
+<Notes>
+  A little side-note,
+  for-comprehensions in scala get compiled to flatMaps and maps.
+  All those left-arrows get compiled to `flatMap`, and the `yield` at the end is a `map`.
+  <br/><br/>
+  So every time you wrote a for-comprehension, you were already using monads, you just didn't know it.
+  <br/><br/>
+  For-comprehensions in scala exist to make it a little easier to work with monads.
+</Notes>
+
+---
+
+## Traverse
+
+---
+
+<!-- ```scala
+case class User(pets: List[Pet])
+
+val users: List[User] = ???
+
+val pets: List[List[Pet]] = users.map(user => user.pets)
+
+val pets: List[Pet] = users.map(user => user.pets).flatten
+```
+
+--- -->
+
+```scala
+def getUser(username: String): Future[User] = ???
+
+val usernames: List[String] = ???
+
+val users: List[Future[User]] =
+  usernames.map(username => getUser(username))
+```
+
+<Notes>
+  Say we now have a list of usernames, and for each and every one of them, we want to retrieve the corresponding user from the database.
+  <br/><br/>
+  We're mapping over that list, and for each username we're going to get a Future[User].
+  Which means in the end, we'll have a list of futures.
+  <br/><br/>
+  But a list of futures is not very useful.
+  If we want to return this to a client as JSON, we can't serialize a list of futures.
+</Notes>
+
+---
+
+~~List[Future[User]]~~
+
+Future[List[User]]
+
+<Notes>
+  What we want is to merge all these little futures together into one big future,
+  that's going to wait for all the database calls to finish, and it's going to collect all the users into one big list.
+  <br/><br/>
+  So we *don't* want a list of futures, we want a future with a list.
+  We esentially want to invert these two layers.
+</Notes>
+
+---
+
+```scala sequence
+def sequence(list: List[Future[User]]): Future[List[User]] =
+  list match {
+    case Nil          => Future(Nil)
+    case head :: tail =>
+      (head, sequence(tail))
+        .mapN((first, rest) => first :: rest)
+  }
+```
+
+<Notes>
+  I could write a function myself to do this.
+  Futures are applicatives, so I can go through the list and use mapN to join all those little futures together into one big future.
+</Notes>
+
+---
+
+```scala sequence
+sequence:      List[Future[A]]   ->   Future[List[A]]
+```
+
+<Notes>
+  But I don't need to do that because cats already has a function that does this for me.
+</Notes>
+
+---
+
+```scala sequence
+def getUser(username: String): Future[User] = ???
+
+val usernames: List[String] = ???
+
+val users: Future[List[User]] =
+  usernames.map(username => getUser(username)).sequence
+----
+5[4:10], 6[1:2, 11:12]
+```
+
+<Notes>
+  So let's go ahead and put that into our code.
+  <br/><br/>
+  Now we've got one big future that will wait for all database calls to complete, and then put all the results into one list.
+  <br/><br/>
+  But, instead of mapping and then sequencing, we can do both things in one step with `traverse`.
+</Notes>
+
+---
+
+```scala traverse
+def getUser(username: String): Future[User] = ???
+
+val usernames: List[String] = ???
+
+val users: Future[List[User]] =
+  usernames.traverse(username => getUser(username))
+----
+5[4:10], 6[1:2, 11:12]
+```
+
+<Notes>
+  With traverse, we can now map over the list, run a bunch of futures, *and* collect all the results
+</Notes>
+
+---
+
+```scala traverse
+def traverse[A, B](fa: List[A])(f: A => Future[B]): Future[List[B]]
+```
+
+<Notes>
+  Now here's what the signature of `traverse` looks like.
+  It takes a list of As, and a function from an A to a future of something else, and then returns one big future with a list.
+</Notes>
+
+---
+
+```scala
+usernameOpt.traverse(usernme => getUser(username))
+
+userValidated.traverse(user => insertRow(user))
+```
+
+<Notes>
+  Now, just like we can map over many data types, we can also traverse over lots and lots of things.
+  <br/><br/>
+  We can traverse over an option, and say: "if this option is not empty, retrieve the user from the database, and if it's empty don't do anything".
+  <br/><br/>
+  Or we can traverse over a possibly valid value, and say: "if this thing is valid, create a new entry in the database, otherwise do nothing".
+  <br/><br/>
+</Notes>
+
+---
+
+```scala traverse
+def traverse[A, B](fa: List[A]        )(f: A => Future[B]): Future[List[B]]
+
+def traverse[A, B](fa: Option[A]      )(f: A => Future[B]): Future[Option[B]]
+
+def traverse[A, B](fa: Validated[E, A])(f: A => Future[B]): Future[Validated[E, B]]
+```
+
+<Notes>
+  And if we put all these traverse signatures side by side, you'll probably notice a trend.
+  <br/><br/>
+  You can probably see where I'm going with this.
+</Notes>
+
+---
+
+```scala Generalising traverse
+def traverse[A, B](fa: F[A])(f: A => Future[B]): Future[F[B]]
+```
+
+<Notes>
+  We can replace the things that vary with a type variable F.
+</Notes>
+
+---
+
+```scala Generalising traverse
+trait Traverse[F[_]] {
+
+  def traverse[A, B](fa: F[A])(f: A => Future[B]): Future[F[B]]
+
+}
+
+object Traverse {
+  implicit val listTraverse = ???
+  implicit val optionTraverse = ???
+  implicit val eitherTraverse = ???
+  implicit val validatedTraverse = ???
+}
+----
+1:5
+*
+```
+
+<Notes>
+  And in cats, this is captured by the `Traverse` typeclass, which describes all types F that can be traversed with a future.
+</Notes>
+
+---
+
+```scala Generalising traverse
+def traverse[A, B](fa: List[A]        )(f: A => Future[B]): Future[List[B]]
+
+def traverse[A, B](fa: Option[A]      )(f: A => Future[B]): Future[Option[B]]
+
+def traverse[A, B](fa: Validated[E, A])(f: A => Future[B]): Future[Validated[E, B]]
+```
+
+<Notes>
+  But here's the thing: it's not just the type of the first argument that can vary, the second one can too!
+  <br/><br/>
+  That function there doesn't need to return a future!
+</Notes>
+
+---
+
+```scala Generalising traverse
+val validUsers: ValidatedNel[List[Username]] =
+  users.traverse(user => validateUser(user))
+
+val pets: Option[List[Pet]] =
+  people.traverse(person => getOptionalPet(person))
+----
+1:2
+*
+```
+
+<Notes>
+  For exemple, here, I'm traversing over a list of users.
+  But instead of returning a future, i'm now validating each user.
+  So traverse will merge all these validations into a single big validation,
+  which will be valid if all users are valid,
+  or if any validation step fails, it's gonna aggregate all the errors.
+  <br/><br/>
+  Or instead of returning a validation, I can return an Option, and then traverse will merge all the options,
+  and it'll be a Some if everything succeeds, or a None if any of those steps fail.
+</Notes>
+
+---
+
+```scala Generalising traverse
+
+def traverse[A, B](fa: List[A])(f: A => Future[B]      ): Future[List[B]]
+
+def traverse[A, B](fa: List[A])(f: A => Option[B]      ): Option[List[B]]
+
+def traverse[A, B](fa: List[A])(f: A => Validated[E, B]): Validated[E, List[B]]
+```
+
+<Notes>
+  You can see here the variation of that type.
+</Notes>
+
+---
+
+```scala Generalising traverse
+trait Traverse[F[_]] {
+
+  def traverse[A, B](fa: F[A])(f: A => Future[B]): Future[F[B]]
+
+  def traverse[G[_], A, B](fa: F[A])(f: A => G[B]): G[F[B]]
+
+  def traverse[G[_] : Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]]
+
+}
+----
+1, 9, 3
+1, 9, 3[21:24, 27:33], 5[4:7, 26:29, 32:38]
+1, 9, 7[4:10]
+1, 9, 7
+```
+
+<Notes>
+  This means that we can also replace Future there, with a type variable `G` instead.
+  <br/><br/>
+  We do have to add a constraint here.
+  Internally, traverse combines all those little futures, or all those little validations into a final big validation,
+  by calling `mapN` to merge everything together.
+  <br/><br/>
+  So we do have to add a constraint here, to say that G can be anything, as long we can call `mapN` on it.
+  <br/><br/>
+  And then we have a fully generalised `traverse` that works on an infinite number of things.
+</Notes>
+
+---
+
+
+```scala Final Recap
+map:           F[A]             A => B        F[B]
+
+mapN:      (F[A], F[B])      (A, B) => C      F[C]
+
+pure:                             A           F[A]
+
+flatMap:       F[A]            A => F[B]      F[B]
+
+flatten:                        F[F[A]]       F[A]
+
+traverse:      F[A]            A => G[B]     G[F[B]]
+
+sequence:                       F[G[A]]      G[F[A]]
+```
+
+<Notes>
+  You can use this as a reference table.
+  So whenever you have something and you want to transform it into something else but
+  you don't quite know how, there's a good chance you might need one of these "glue" functions.
+</Notes>
+
+---
+
+|  &nbsp;   | Functor | Applicative | Monad | Traverse |
+| --------- | ------- | ----------- | ----- | -------- |
+| List      | ✓       | ✓           | ✓     | ✓        |
+| Option    | ✓       | ✓           | ✓     | ✓        |
+| Either    | ✓       | ✓           | ✓     | ✓        |
+| Future    | ✓       | ✓           | ✓     |          |
+| Gen       | ✓       | ✓           | ✓     |          |
+| Validated | ✓       | ✓           |       | ✓        |
+
+<Notes>
+  I also put together a table to quickly see whether you can map, flatMap or traverse over
+  something.
+  <br/><br/>
+  Also, just to drive home the point of how important these abstractions are:
+  notice how we have 4 traversable things here, and 6 that can be merged using mapN.
+  <br/><br/>
+  This means that there's 24 ways to traverse a structure!
+  If we didn't have the Traverse typeclass, we'd have to define 24 different traverse functions!
+  Think about it: traverse list with list, traverse list with option, list with future, etc.
+  And that's just considering this handful of types, but there are many many more, so technically, there could be an infinite number
+  of different traverse functions.
+  <br/><br/>
+  But with the traverse typeclass, we have one function, implemented 4 times.
+</Notes>
+
+---
+
+## 👨‍⚖️ Laws ⚖️
+
+<Notes>
+  One thing I've refrained from mentioning so far is that these typeclasses have laws.
+</Notes>
+
+---
+
+```scala Functor Laws
+  fa.map(a => a)   ===   fa
+
+fa.map(f).map(g)   ===   fa.map(a => g(f(a)))
+```
+
+<Notes>
+  The first law says that mapping over, say, a list with a function that just returns its argument, should be the same as not doing anything.
+  The list should remain unchanged.
+  <br/><br/>
+  This basically guarantees what I said at the beginning, that map is not allowed to change the structure,
+  it's not allowed to shuffle the elements in a list while mapping over it, or it's not allowed to turn a Some into a None,
+  otherwise it would break this law.
+  <br/><br/>
+  The second laws says that mapping over a list with a function, and then mapping over it again with another function,
+  should be the same as mapping over it once, with both functions at the same time.
+  <br/><br/>
+  This law guarantees that it's always safe to fuse multiple maps.
+  So whenever you see a call to map like that, you can rewrite it, which will *probably* be more efficient.
+</Notes>
+
+---
+
+```scala Functor Laws
+// https://typelevel.org/cats/typeclasses/lawtesting.html
+
+import cats.laws.discipline.FunctorTests
+import cats.tests.CatsSuite	
+
+class TreeLawTests extends CatsSuite {
+  checkAll("Tree.FunctorLaws",
+    FunctorTests[Tree].functor[Int, Int, String])
+}
+```
+
+<Notes>
+  Luckily, you don't have to worry too much about these laws, you don't need to memorize them,
+  because cats comes with suits to automatically test them.
+  So you could easily write a couple of lines of code to check whether your tree functor obeys these two laws.
+</Notes>
+
+---
+
+### Why should I care?
+
+---
+
+```java Functors are everywhere!
+// C#
+list.Select(x => x + 1)
+
+// Java
+list.stream()
+    .map(x -> x + 1)
+    .collect(Collectors.toList());
+
+// Javascript
+list.map(x => x + 1)
+```
+
+<Notes>
+  You've been using functors, applicatives and monads every day, even before you wrote scala.
+</Notes>
+
+---
+
+```java Monads are everywhere!
+// Javascript
+promise.andThen(x => anotherPromise(x))
+
+// Javascript / C#
+var x = await promise();
+anotherPromise(x)
+```
+
+<Notes>
+  Or if you've used promises in javascript, you were using monads too!
+  <br/><br/>
+  All these abstractions we talked about they exist, independently of scala,
+  just like addition exists independently of the + operator in scala, or whatever language.
+  <br/><br/>
+  The difference is, in Scala with cats, we recognize these abstractions and give them a name.
+  And by giving them a name, we can talk about them, talk about things that can be mapped over, talk about things that can be traversed, or merged together.
+  Also, in time you learn to recognise these patterns in your own code.
+  <br/><br/>
+  Someday you'll be writing a piece of code and realise that your data type is also a functor.
+  So everything that works on functors, will automatically work on your new data type as well.
+</Notes>

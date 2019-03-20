@@ -10,6 +10,9 @@ Hosted on Netlify.com
 ### Typeclasses in Scala
 * Slides: https://talks.diogocastro.com/typeclasses-in-scala/
 
+### Cats Typeclasses
+* Slides: https://talks.diogocastro.com/cats-typeclasses/
+
 ## Build slides
 
 Requires `npm`

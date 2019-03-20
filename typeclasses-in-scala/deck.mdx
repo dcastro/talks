@@ -27,7 +27,7 @@ def postRequest(content: ?) = {
 
 <Notes>
   Say I want to write a function that takes a variable of any type that's convertible to Json.
-  I don't know what the type of that argument is going to be yet, but I want to be something that I can convert to JSON.
+  I don't know what the type of that argument is going to be yet, but I want it to be something that I can convert to JSON.
   That could be strings, ints, your domain objects like `Person`, or a list of `Person`.
   <br/><br/>
   We want to be able to abstract over all these types, we want to be able to say "all these types are encodable, everything else isn't".
@@ -220,7 +220,7 @@ object Person {
   We instantiate the trait, replacing `A` with `Person`.
   We're creating a proof that values of type `Person` can be encoded.
   <br/><br/>
-  And we have to mark it as implicit.
+  And we have to mark it as implicit, so that whenever we try to encode a person, this proof will be automatically found by the compiler.
   <br/><br/>
   This is how you define a typeclass, but how do you use it?
 </Notes>
@@ -601,13 +601,53 @@ object PersonSnakeCase {
 
 ---
 
-```scala Context bounds
-implicit def sum[A](list: List[A])(implicit numericA: Numeric[A]): A
+```scala Extension methods
+def postRequest[A](content: A)(implicit instance: Encodable[A]) {
 
-implicit def sum[A : Numeric](list: List[A]): A
+  val json = instance.toJson(content)
+
+}
+```
+
+---
+
+```scala Extension methods
+implicit class EncoderSyntax[A](value: A) {
+
+  def asJson(implicit encoder: Encodable[A]): Json =
+    encoder.toJson(content)
+}
+
+
+def postRequest[A](content: A)(implicit instance: Encodable[A]) {
+
+  val json = content.asJson
+
+}
+```
+
+<Notes>
+  
+</Notes>
+
+---
+
+```scala Context bounds
+implicit class EncoderSyntax[A](value: A) {
+
+  def asJson(implicit encoder: Encodable[A]): Json =
+    encoder.toJson(content)
+}
+
+
+def postRequest[A](content: A)(implicit instance: Encodable[A]) {
+def postRequest[A : Encodable](content: A) {
+
+  val json = content.asJson
+
+}
 ----
-*
-1[4:6, 15:22], 3[5:9]
+8[3:5, 11:18], 9[3:7]
 ```
 
 ---

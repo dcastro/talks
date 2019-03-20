@@ -9,6 +9,9 @@ slides:  ## Build slides
 	cd typeclasses-in-scala && make slides
 	cp -R ./typeclasses-in-scala/dist/ ./dist/typeclasses-in-scala/
 
+	cd cats-typeclasses && make slides
+	cp -R ./cats-typeclasses/dist/ ./dist/cats-typeclasses/
+
 .PHONY: slides
 
 
@@ -16,6 +19,7 @@ clean:  ## Clean
 	rm -rf dist
 	cd the-haskell-epidemic && make clean
 	cd typeclasses-in-scala && make clean
+	cd cats-typeclasses && make clean
 .PHONY: clean
 
 

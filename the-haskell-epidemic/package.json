@@ -10,7 +10,7 @@
     "help": "mdx-deck"
   },
   "keywords": [],
-  "author": "Brent Jackson",
+  "author": "Diogo Castro",
   "license": "MIT",
   "devDependencies": {
     "mdx-deck": "1.8.2",
